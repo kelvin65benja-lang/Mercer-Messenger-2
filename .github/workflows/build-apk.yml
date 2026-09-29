@@ -25,44 +25,36 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: true
+
       - name: Check Android SDK
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "Android SDK:"
+          echo "$ANDROID_HOME"
           sdkmanager --version
-
-      - name: Accept Android SDK licenses
-        run: |
-          yes | sdkmanager --licenses || true
-
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Install Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
+          adb --version
 
       - name: Configure Firebase
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
+            mkdir -p android/app
             echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
             echo "Firebase configuration installed."
           else
-            echo "Firebase Android configuration not added yet."
-            echo "Continuing with APK build."
+            echo "Firebase configuration not added yet."
           fi
 
       - name: Build APK
+        working-directory: android
         run: |
-          gradle -p android \
-            --no-daemon \
-            --stacktrace \
-            -PWEB_APP_URL="${{ vars.WEB_APP_URL || 'https://mercer-messenger.web.app/' }}" \
-            assembleDebug
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -70,12 +62,3 @@ jobs:
           name: Mercer-Messenger-10.5.6-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-      - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v10.5.6-${{ github.run_number }}
-          name: Mercer Messenger v10.5.6 Build ${{ github.run_number }}
-          files: android/app/build/outputs/apk/debug/app-debug.apk
-          generate_release_notes: false
