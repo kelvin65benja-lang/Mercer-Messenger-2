@@ -21,43 +21,60 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
+      - name: Prepare Android SDK
         run: |
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-35"
-          sdkmanager "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+          sdkmanager "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Check Android project
         run: |
           echo "Checking repository..."
           pwd
-          echo "Files and folders:"
           ls -la
 
-          if [ -d "./android" ]; then
-            echo "Android folder found."
-            ls -la ./android
-          else
+          if [ ! -d "./android" ]; then
             echo "ERROR: android folder was not found."
+            echo "Repository structure:"
+            find . -maxdepth 3 -type f | sort
             exit 1
           fi
 
+          echo "Android folder found:"
+          find ./android -maxdepth 2 -type f | sort
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
       - name: Build APK
         run: |
+          echo "Starting Android APK build..."
+
           if [ -f "./android/gradlew" ]; then
             chmod +x ./android/gradlew
-            ./android/gradlew -p ./android assembleDebug --stacktrace --no-daemon
+            ./android/gradlew \
+              -p ./android \
+              assembleDebug \
+              --stacktrace \
+              --no-daemon
           else
-            echo "gradlew not found. Using installed Gradle..."
-            gradle -p ./android assembleDebug --stacktrace --no-daemon
+            gradle \
+              -p ./android \
+              assembleDebug \
+              --stacktrace \
+              --no-daemon
           fi
 
       - name: Find APK
         run: |
-          echo "Searching for APK..."
+          echo "Searching for generated APK..."
           find ./android -type f -name "*.apk" -print
 
       - name: Upload APK
