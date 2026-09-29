@@ -1,19 +1,15 @@
-name: Build Mercer Messenger APK
+name: Build Android APK
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-      - master
 
 jobs:
   build:
-    name: Build Android APK
-    runs-on: ubuntu-24.04
-
-    permissions:
-      contents: write
+    name: Build APK
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source
@@ -27,38 +23,46 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
-          log-accepted-android-sdk-licenses: true
 
-      - name: Check Android SDK
+      - name: Install Android SDK packages
         run: |
-          echo "Android SDK:"
-          echo "$ANDROID_HOME"
-          sdkmanager --version
-          adb --version
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
 
-      - name: Configure Firebase
-        env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+      - name: Check Android project
         run: |
-          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
-            mkdir -p android/app
-            echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
-            echo "Firebase configuration installed."
+          echo "Checking repository..."
+          pwd
+          echo "Files and folders:"
+          ls -la
+
+          if [ -d "./android" ]; then
+            echo "Android folder found."
+            ls -la ./android
           else
-            echo "Firebase configuration not added yet."
+            echo "ERROR: android folder was not found."
+            exit 1
           fi
 
       - name: Build APK
-        working-directory: android
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          if [ -f "./android/gradlew" ]; then
+            chmod +x ./android/gradlew
+            ./android/gradlew -p ./android assembleDebug --stacktrace --no-daemon
+          else
+            echo "gradlew not found. Using installed Gradle..."
+            gradle -p ./android assembleDebug --stacktrace --no-daemon
+          fi
+
+      - name: Find APK
+        run: |
+          echo "Searching for APK..."
+          find ./android -type f -name "*.apk" -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Mercer-Messenger-10.5.6-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Mercer-Messenger-APK
+          path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
