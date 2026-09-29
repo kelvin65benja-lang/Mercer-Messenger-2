@@ -1,0 +1,4 @@
+{
+  "note": "Do not upload real Firebase Android credentials to this repository. Add the real file as the base64 GitHub Actions secret GOOGLE_SERVICES_JSON_B64.",
+  "how_to_create": "Firebase Console -> Project settings -> Your apps -> Add Android app -> package com.mercer.messenger -> download google-services.json"
+}
